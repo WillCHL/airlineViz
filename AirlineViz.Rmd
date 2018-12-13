@@ -1,0 +1,265 @@
+---
+title: "Airline Holiday Viz"
+subtitle: "Passengers on flights departing Australia"
+author: "Will Hore-Lacy"
+date: "13/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+
+library(data.table)
+library(sf)
+library(leaflet)
+library(ggplot2)
+library(maps)
+library(geosphere)
+library(htmltools)
+
+```
+
+## Premise
+
+In Australia the Christmas holidays coincide with the summer school holidays so it is often a time people travel. The Story Telling With Data challenge prompted to me considered if the airline travel patters were different in this holiday period. 
+
+```{r downloadData, eval=FALSE}
+# Download passenger data
+# https://data.gov.au/dataset/international-airlines-traffic-by-city-pairs
+download.file("https://data.gov.au/dataset/d9fbffaa-836f-4f52-80e8-324249ff269f/resource/ebcafd83-9514-4f72-a995-fe7ee90cb9da/download/city_pairs.csv",
+              "./data/city_pairs.csv")
+
+# Download airport data
+# https://openflights.org/data.html
+download.file("https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat",
+              "./data/airports.csv")
+
+```
+
+```{r importData}
+
+## Import data
+
+city_pairs <- fread("./data/city_pairs.csv")
+
+
+airportHeader <- c("Airport ID", "Name", "City",
+                   "Country", "IATA", "ICAO",
+                   "Latitude", "Longitude",
+                   "Altitude", "Timezone", "DST", "Tz", 
+                   "Type", "Source")
+
+airports <- fread("./data/airports.csv", header = F)
+names(airports) <- airportHeader
+
+
+```
+
+## Results
+
+```{r totals}
+# Make December and January the holiday period
+city_pairs[Month_num %in% c(1,12), holiday:="yes"]
+city_pairs[!(Month_num %in% c(1,12)), holiday:="no"]
+
+
+# For mean of Australian ports
+totalFlights <- dcast(city_pairs[Year>=2008],  holiday ~ .,
+                     value.var = "Passengers_In", fun.aggregate=mean)
+
+
+```
+
+In general the number of flights increased in the holiday period from `r round(totalFlights[holiday=="no",.],0) ` to `r round(totalFlights[holiday=="yes",.],0)` (monthly average) so the results are skewed towards increases in passenger number, however there were some destinations the saw a reduction in the number of passengers.
+
+
+```{r chart, fig.height=5.5, fig.width=8}
+
+
+# For mean of Australian ports
+aust_hol <- dcast(city_pairs[Year>=2008], ForeignPort + Country ~ holiday,
+                     value.var = "Passengers_In", fun.aggregate=mean)
+
+aust_hol[,delta := yes-no]
+aust_hol[,absdelta:=abs(delta)]
+aust_hol <- aust_hol[absdelta>0]
+
+setorder(aust_hol,-delta)
+
+len <- nrow(aust_hol)
+
+aust_hol_top <- rbind(aust_hol[1:6],
+                      aust_hol[(len-5):len])
+
+aust_hol_top[, portNm:=paste0(ForeignPort,",\n",Country)]
+aust_hol_top[, portNm:=factor(portNm,levels = aust_hol_top$portNm[1:12], ordered = T)]
+
+aust_hol_top[delta>0,increase:="Increase"]
+aust_hol_top[delta<0,increase:="Decrease"]
+
+
+ggplot(aust_hol_top, aes(x=portNm, y=delta, fill=increase)) +
+            geom_bar(stat="identity", position="dodge") +
+            geom_hline(yintercept = 0, colour="grey", size=.4) +
+            geom_vline(xintercept = 6.5, colour="grey", size=.4, linetype="dashed") +
+            theme_light() +
+            theme(axis.text.x = element_text(angle = 55, hjust=1, vjust=1),
+                  panel.grid=element_blank(),
+                  panel.border=element_blank(),
+                  axis.line.y=element_line(colour="grey")) +
+            labs(x="Destination", y="Change in Avg. monthly passengers", fill=NULL,
+                 title="Change in airline passenger numbers for holiday period (Dec & Jan) ",
+                 subtitle="Mean of all Australian Ports. Top and bottom 6 destinations.") +
+            scale_fill_manual(values=c(Decrease="dark red",Increase="dark green")) + 
+            guides(fill = guide_legend(reverse=T))
+
+```
+
+
+```{r, geocode}
+
+# Add gps for origins and destinations
+
+# Create dataset to use
+pairs_hol <- dcast(city_pairs[Year>=2008], AustralianPort + ForeignPort + Country ~ holiday,
+                     value.var = "Passengers_In", fun.aggregate=mean)
+
+pairs_hol[,delta := yes-no]
+
+pairs_hol[,absdelta:=abs(delta)]
+pairs_hol <- pairs_hol[absdelta>0]
+
+
+# Fix some city names
+pairs_hol[grepl("Gold Coast", AustralianPort), AustralianPort:="Coolangatta"]
+pairs_hol[grepl("Toowoomba Wellcamp", AustralianPort), AustralianPort:="Toowoomba"]
+
+# Make field match city and country
+pairs_hol[,origin:=paste0(AustralianPort,", Australia")]
+pairs_hol[,destination:=paste0(ForeignPort,", ", Country)]
+airports[,CityNm:=paste0(City,", ",Country)]
+
+# Get gps based on city or aiport name
+getGPS <- function(x) {
+    
+    # Look for exact match for name and country
+    DT <- airports[CityNm==x]
+    
+    # Some heuristics to try and match other options
+    if(nrow(DT)==0) {
+        DT <- airports[Country==strsplit(x,", ")[[1]][2]]
+        DT <-DT[agrep(strsplit(x,",")[[1]][1],Name, ignore.case = T, max.distance = .2)]
+    }
+    if(nrow(DT)==0) {
+        DT <-airports[City==strsplit(x,",")[[1]][1]]
+    }
+    if(nrow(DT)==0) {
+        DT <- airports[Country==strsplit(x,", ")[[1]][2]]
+        DT <-DT[agrep(strsplit(x,",")[[1]][1],City, ignore.case = T, max.distance = .4)]
+    }
+    if(nrow(DT)==0) {
+        DT <-airports[agrep(strsplit(x,",")[[1]][1],City, ignore.case = T, max.distance = .4)]
+    }
+    if(nrow(DT) >1) {
+        DT2 <- DT[grepl("International",Name)]
+        if(nrow(DT2)>0) {
+            DT <- DT2
+        }
+    }
+    if(nrow(DT)>1) {
+        DT <- DT[1]
+    }
+    if(nrow(DT)==0) {
+        return(data.table(Name=NA,Latitude=NA,Longitude=NA))
+    }
+    
+    DT<-DT[,c("Name", "Latitude", "Longitude")]
+    return(DT)
+}
+
+# get the gps for origin and destination
+origin <- rbindlist(lapply(pairs_hol$origin,getGPS))
+names(origin) <- paste0("origin_",names(origin))
+
+destination <- rbindlist(lapply(pairs_hol$destination,getGPS))
+names(destination) <- paste0("dest_",names(destination))
+
+pairs_hol <- cbind(pairs_hol, origin, destination)
+
+
+```
+
+Change in the number of average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 15 increases and decreases.
+
+```{r, fig.height=6, fig.width=10}
+
+# Corrections allows for 'correct' plotting on world centered on Australia without wrapping
+correctLon <- function(x) {
+
+    if(x<(-50)) {
+        x<-x+360
+    }
+    return(x)
+}
+
+# Converts two points into a great circle curved line 
+makeLineSF <- function(x) {
+
+    lon1 <- as.numeric(x["origin_Longitude"])
+    lat1 <- as.numeric(x["origin_Latitude"])
+    lon2 <- as.numeric(x["dest_Longitude"])
+    lat2 <- as.numeric(x["dest_Latitude"])
+
+    line1 <- gcIntermediate(c(lon1, lat1),
+                            c(lon2, lat2),
+                            n=100, addStartEnd=TRUE, breakAtDateLine = F)
+    
+    # remove 360 degrees from longitude
+    line1[,1] <- sapply(line1[,1],correctLon)
+
+    return(st_sf(id=1, geometry=st_sfc(st_linestring(line1, dim="XY"))))
+    # return(makeGCline(lon1,lat1,lon2,lat2))
+
+}
+
+# Create lines to plot
+pairs_hol <- pairs_hol[!is.na(dest_Latitude)]
+pairs_hol_geom <-do.call("rbind", apply(pairs_hol,1,makeLineSF))
+
+pairs_hol <- st_bind_cols(pairs_hol,pairs_hol_geom)
+
+# Select top and bottom 15 locations
+setorder(pairs_hol,-delta)
+len <- nrow(pairs_hol)
+pairs_hol_top30 <- rbind(pairs_hol[1:15,],
+                      pairs_hol[(len-14):len,])
+
+# Create map
+pairsPal_top30 <- colorNumeric("RdYlGn", 
+                       c(-max(pairs_hol_top30$absdelta),0,
+                         max(pairs_hol_top30$absdelta)))
+
+leaflet(pairs_hol_top30) %>%
+    addProviderTiles("CartoDB.Positron") %>% #Provider ties
+    addPolylines(weight = ~(absdelta/1000+2),color=~pairsPal_top30(delta),
+                 label = ~paste0(origin," - ",destination,": ", round(delta,0)),
+                 opacity=.7) %>%
+    setView(lng = 144, lat = 10, zoom = 2) %>%
+    addLegend(position = "bottomleft", pal=pairsPal_top30,
+              values=c(-max(pairs_hol_top30$absdelta),0,
+                         max(pairs_hol_top30$absdelta)),
+              title = "Change in<br>Average Monthly<br>Passengers")
+```
+
+
+## Data
+
+Two datasets are used for the visualisation:
+
+* [Flight data](https://data.gov.au/dataset/international-airlines-traffic-by-city-pairs)
+    * [city_pairs.csv](https://data.gov.au/dataset/d9fbffaa-836f-4f52-80e8-324249ff269f/resource/ebcafd83-9514-4f72-a995-fe7ee90cb9da/download/city_pairs.csv) (2008-2018 data only)
+* [Airport data](https://openflights.org/data.html)
+    * [airports.dat](https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat)
+
+
+
