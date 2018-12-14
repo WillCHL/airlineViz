@@ -469,6 +469,34 @@ leaflet(pairs_hol_top30) %>%
 ```
 
 
+```{r, fig.height=6, fig.width=10}
+
+
+# Select top and bottom 15 locations as a percentage
+setorder(pairs_hol,-deltaPer)
+len <- nrow(pairs_hol)
+pairs_hol_top30 <- rbind(pairs_hol[1:15,],
+                      pairs_hol[(len-14):len,])
+summary(pairs_hol_top30$deltaPer)
+# Create map
+pairsPal_top30 <- colorNumeric("RdYlGn", 
+                       c(-max(abs(pairs_hol_top30$deltaPer)),0,
+                         max(abs(pairs_hol_top30$deltaPer))),
+                       reverse = TRUE)
+
+leaflet(pairs_hol_top30) %>%
+    addProviderTiles("CartoDB.Positron") %>% #Provider ties
+    addPolylines(weight = ~(deltaPer*4),color=~(pairsPal_top30(-deltaPer)),
+                 label = ~paste0(origin," - ",destination,": ", round(deltaPer,3)),
+                 opacity=.7) %>%
+    setView(lng = 144, lat = 10, zoom = 2) %>%
+    addLegend(position = "bottomleft", pal=pairsPal_top30,
+              values=c(-max(abs(pairs_hol_top30$deltaPer)),0,
+                         max(abs(pairs_hol_top30$deltaPer))),
+              title = "Change in<br>Average Monthly<br>Passengers",
+              labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+```
+
 ```{r, eval=FALSE}
 
 st_coordinates(pairs_hol[pairs_hol$Country=="USA", "geometry"])

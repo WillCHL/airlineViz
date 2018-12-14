@@ -124,11 +124,14 @@ ggplot(aust_hol_top, aes(x=portNm, y=delta, fill=increase)) +
 pairs_hol <- dcast(city_pairs[Year>=2008], AustralianPort + ForeignPort + Country ~ holiday,
                      value.var = "Passengers_In", fun.aggregate=mean)
 
+# Calculate delta
 pairs_hol[,delta := yes-no]
 
 pairs_hol[,absdelta:=abs(delta)]
 pairs_hol <- pairs_hol[absdelta>0]
 
+# Delta as a percentage of non-holiday period
+pairs_hol[,deltaPer := delta/no]
 
 # Fix some city names
 pairs_hol[grepl("Gold Coast", AustralianPort), AustralianPort:="Coolangatta"]
@@ -235,20 +238,23 @@ pairs_hol_top30 <- rbind(pairs_hol[1:15,],
                       pairs_hol[(len-14):len,])
 
 # Create map
+# Pal. Reverse to get green at the top of the legend
 pairsPal_top30 <- colorNumeric("RdYlGn", 
                        c(-max(pairs_hol_top30$absdelta),0,
-                         max(pairs_hol_top30$absdelta)))
+                         max(pairs_hol_top30$absdelta)),
+                       reverse = TRUE)
 
 leaflet(pairs_hol_top30) %>%
     addProviderTiles("CartoDB.Positron") %>% #Provider ties
-    addPolylines(weight = ~(absdelta/1000+2),color=~pairsPal_top30(delta),
+    addPolylines(weight = ~(absdelta/1000+2),color=~(pairsPal_top30(-delta)), # -delta to reverse values
                  label = ~paste0(origin," - ",destination,": ", round(delta,0)),
                  opacity=.7) %>%
     setView(lng = 144, lat = 10, zoom = 2) %>%
     addLegend(position = "bottomleft", pal=pairsPal_top30,
               values=c(-max(pairs_hol_top30$absdelta),0,
                          max(pairs_hol_top30$absdelta)),
-              title = "Change in<br>Average Monthly<br>Passengers")
+              title = "Change in<br>Average Monthly<br>Passengers",
+              labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) # reverse legend values
 ```
 
 
