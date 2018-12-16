@@ -67,6 +67,9 @@ top_ports <- top_ports[1:7]
 pairs_hol[,absdelta:=abs(delta)]
 pairs_hol <- pairs_hol[absdelta>0]
 
+# Delta as a percentage of non-holiday period
+pairs_hol[,deltaPer := delta/no]
+
 pairs_hol_top <- data.table()
 
 # for(dest in top_ports$AustralianPort) {

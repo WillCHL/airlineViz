@@ -1,9 +1,11 @@
 ---
 title: "Airline Holiday Viz"
-subtitle: "Passengers on flights departing Australia"
+subtitle: "Passengers on flights departing Australia in the holiday period"
 author: "Will Hore-Lacy"
-date: "13/12/2018"
-output: html_document
+date: "16/12/2018"
+output:
+  html_document:
+    css: style.css
 ---
 
 ```{r setup, include=FALSE}
@@ -21,7 +23,9 @@ library(htmltools)
 
 ## Premise
 
-In Australia the Christmas holidays coincide with the summer school holidays so it is often a time people travel. The Story Telling With Data challenge prompted to me considered if the airline travel patters were different in this holiday period. 
+In Australia the Christmas holidays coincide with the summer school holidays so it is often a time people travel. The [Story Telling With Data challenge](https://www.storytellingwithdata.com/blog/2018/12/03/lets-visualize-the-holidays) prompted to me considered how airline travel patters were different in this holiday period. 
+
+In the end I picked a problem that was too big for the offical challenge timeframe but here's what I came up with anyway... 
 
 ```{r downloadData, eval=FALSE}
 # Download passenger data
@@ -70,10 +74,10 @@ totalFlights <- dcast(city_pairs[Year>=2008],  holiday ~ .,
 
 ```
 
-In general the number of flights increased in the holiday period from `r round(totalFlights[holiday=="no",.],0) ` to `r round(totalFlights[holiday=="yes",.],0)` (monthly average) so the results are skewed towards increases in passenger number, however there were some destinations the saw a reduction in the number of passengers.
+In general the number of flights increased in the holiday period from `r round(totalFlights[holiday=="no",.],0) ` to `r round(totalFlights[holiday=="yes",.],0)` passengers per monthly so the results are skewed towards increases in passenger number, however there were some destinations the saw a reduction in the number of passengers. Because the absolute changes in passenger numbers were not large, the visualisaitons use a the change in passenger numbers.
 
 
-```{r chart, fig.height=5.5, fig.width=8}
+```{r chart, fig.height=5.8, fig.width=8}
 
 
 # For mean of Australian ports
@@ -102,6 +106,8 @@ ggplot(aust_hol_top, aes(x=portNm, y=delta, fill=increase)) +
             geom_bar(stat="identity", position="dodge") +
             geom_hline(yintercept = 0, colour="grey", size=.4) +
             geom_vline(xintercept = 6.5, colour="grey", size=.4, linetype="dashed") +
+            geom_text(data=aust_hol_top[c(1,12)], aes(x=portNm, y=delta, label=round(delta,0)), 
+                      colour="white", fontface = "bold", nudge_y=c(-150,155)) +
             theme_light() +
             theme(axis.text.x = element_text(angle = 55, hjust=1, vjust=1),
                   panel.grid=element_blank(),
@@ -109,9 +115,10 @@ ggplot(aust_hol_top, aes(x=portNm, y=delta, fill=increase)) +
                   axis.line.y=element_line(colour="grey")) +
             labs(x="Destination", y="Change in Avg. monthly passengers", fill=NULL,
                  title="Change in airline passenger numbers for holiday period (Dec & Jan) ",
-                 subtitle="Mean of all Australian Ports. Top and bottom 6 destinations.") +
+                 subtitle="Mean of all Australian Ports 2008-2018 for top and bottom 6 destinations.") +
             scale_fill_manual(values=c(Decrease="dark red",Increase="dark green")) + 
-            guides(fill = guide_legend(reverse=T))
+            guides(fill = guide_legend(reverse=T)) +
+            scale_y_continuous(breaks = c(-1000,0,1000,2000,3000))
 
 ```
 
@@ -192,7 +199,7 @@ pairs_hol <- cbind(pairs_hol, origin, destination)
 
 ```
 
-Change in the number of average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 15 increases and decreases.
+The same plot can be generated individually for each Australian port, however a map below provides some extra information. The map shows the change in average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 12 increases and decreases.
 
 ```{r, fig.height=6, fig.width=10}
 
@@ -215,7 +222,7 @@ makeLineSF <- function(x) {
 
     line1 <- gcIntermediate(c(lon1, lat1),
                             c(lon2, lat2),
-                            n=100, addStartEnd=TRUE, breakAtDateLine = F)
+                            n=120, addStartEnd=TRUE, breakAtDateLine = F)
     
     # remove 360 degrees from longitude
     line1[,1] <- sapply(line1[,1],correctLon)
@@ -230,32 +237,49 @@ pairs_hol <- pairs_hol[!is.na(dest_Latitude)]
 pairs_hol_geom <-do.call("rbind", apply(pairs_hol,1,makeLineSF))
 
 pairs_hol <- st_bind_cols(pairs_hol,pairs_hol_geom)
+# pairs_hol <- cbind(pairs_hol,pairs_hol_geom)
 
 # Select top and bottom 15 locations
 setorder(pairs_hol,-delta)
 len <- nrow(pairs_hol)
-pairs_hol_top30 <- rbind(pairs_hol[1:15,],
-                      pairs_hol[(len-14):len,])
+pairs_hol_top24 <- rbind(pairs_hol[1:12,],
+                      pairs_hol[(len-11):len,])
+
+title_txt <- '<div style="text-align:right"><strong>Change in Avg. monthly passenger numbers</strong><br>Top 12 increases and decreases</div>'
 
 # Create map
 # Pal. Reverse to get green at the top of the legend
-pairsPal_top30 <- colorNumeric("RdYlGn", 
-                       c(-max(pairs_hol_top30$absdelta),0,
-                         max(pairs_hol_top30$absdelta)),
+pairsPal_top24 <- colorNumeric("RdYlGn", 
+                       c(-max(pairs_hol_top24$absdelta),0,
+                         max(pairs_hol_top24$absdelta)),
                        reverse = TRUE)
 
-leaflet(pairs_hol_top30) %>%
-    addProviderTiles("CartoDB.Positron") %>% #Provider ties
-    addPolylines(weight = ~(absdelta/1000+2),color=~(pairsPal_top30(-delta)), # -delta to reverse values
+leaflet(pairs_hol_top24) %>%
+    # addProviderTiles("Stamen.Toner") %>% #Provider ties
+    addProviderTiles("CartoDB.DarkMatterNoLabels", options = providerTileOptions(opacity=.78)) %>%
+    addProviderTiles("CartoDB.DarkMatterOnlyLabels", options = providerTileOptions(opacity=.35)) %>% #Provider ties
+    addPolylines(data = pairs_hol_top24[c(1,nrow(pairs_hol_top24)),], 
+                 weight = ~(absdelta/1000+4.7),color="blue", # -delta to reverse values
+                 opacity=.80) %>%
+    addPolylines(weight = ~(absdelta/1000+2),color=~(pairsPal_top24(-delta)), # -delta to reverse values
                  label = ~paste0(origin," - ",destination,": ", round(delta,0)),
-                 opacity=.7) %>%
+                 opacity=.95) %>%
     setView(lng = 144, lat = 10, zoom = 2) %>%
-    addLegend(position = "bottomleft", pal=pairsPal_top30,
-              values=c(-max(pairs_hol_top30$absdelta),0,
-                         max(pairs_hol_top30$absdelta)),
-              title = "Change in<br>Average Monthly<br>Passengers",
+    addControl(title_txt, position = "topright") %>%
+    addLegend(position = "bottomleft", pal=pairsPal_top24,
+              values=c(-max(pairs_hol_top24$absdelta),0,
+                         max(pairs_hol_top24$absdelta)),
+              title = "Change in<br>Avg. Monthly<br>Passengers",
               labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) # reverse legend values
 ```
+<br>
+
+The first interesting patter is that it apperars that the data only show the first port visited rather than final destination, i.e. no locaitons in Europe but flights to major inerchange hubs. The second is that it shows a few differences in the destinations with large changes. 
+
+The top increased and decrease routes are highlighted in blue:
+
+* `r pairs_hol_top24$AustralianPort[1]` to `r pairs_hol_top24$ForeignPort[1]`: `r as.integer(pairs_hol_top24$delta[1])`
+* `r pairs_hol_top24$AustralianPort[nrow(pairs_hol_top24)]` to `r pairs_hol_top24$ForeignPort[nrow(pairs_hol_top24)]`: `r round(pairs_hol_top24$delta[nrow(pairs_hol_top24)], 0)`
 
 
 ## Data
