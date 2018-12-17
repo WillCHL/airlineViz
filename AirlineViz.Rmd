@@ -1,5 +1,5 @@
 ---
-title: "Airline Holiday Viz"
+title: "Airline Holiday Travel"
 subtitle: "Passengers on flights departing Australia in the holiday period"
 author: "Will Hore-Lacy"
 date: "16/12/2018"
@@ -74,7 +74,7 @@ totalFlights <- dcast(city_pairs[Year>=2008],  holiday ~ .,
 
 ```
 
-In general the number of flights increased in the holiday period from `r round(totalFlights[holiday=="no",.],0) ` to `r round(totalFlights[holiday=="yes",.],0)` passengers per monthly so the results are skewed towards increases in passenger number, however there were some destinations the saw a reduction in the number of passengers. Because the absolute changes in passenger numbers were not large, the visualisaitons use a the change in passenger numbers.
+In general the number of flights increased in the holiday period from `r round(totalFlights[holiday=="no",.],0) ` to `r round(totalFlights[holiday=="yes",.],0)` passengers per month, so the results are skewed towards an increases in passenger numbers, however there were some destinations the saw a reduction in the number of passengers. Because the absolute changes in passenger numbers were not large relative to the totals, the visualisaitons uses the change in passenger numbers between travel from February to November and the holiday period.
 
 
 ```{r chart, fig.height=5.8, fig.width=8}
@@ -201,7 +201,7 @@ pairs_hol <- cbind(pairs_hol, origin, destination)
 
 <br>
 
-The same plot can be generated individually for each Australian port, however a map below provides some extra information. The map shows the change in average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 12 increases and decreases.
+The same plot can be generated individually for each Australian port, however the map below can show the data for multiple pots at once and provides some extra information. The map shows the change in average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 12 increases and decreases.
 
 ```{r, fig.height=6, fig.width=10}
 
@@ -261,7 +261,7 @@ leaflet(pairs_hol_top24) %>%
     addProviderTiles("CartoDB.DarkMatterNoLabels", options = providerTileOptions(opacity=.78)) %>%
     addProviderTiles("CartoDB.DarkMatterOnlyLabels", options = providerTileOptions(opacity=.35)) %>% #Provider ties
     addPolylines(data = pairs_hol_top24[c(1,nrow(pairs_hol_top24)),], 
-                 weight = ~(absdelta/1000+4.7),color="blue", # -delta to reverse values
+                 weight = ~(absdelta/1000+4.9),color="#01b9fc", # -delta to reverse values
                  opacity=.80) %>%
     addPolylines(weight = ~(absdelta/1000+2),color=~(pairsPal_top24(-delta)), # -delta to reverse values
                  label = ~paste0(origin," - ",destination,": ", round(delta,0)),
@@ -276,7 +276,7 @@ leaflet(pairs_hol_top24) %>%
 ```
 <br>
 
-The first interesting pattern is that it appears that the data only show the first port visited rather than final destination, i.e. no locations in Europe but flights to major interchange hubs. The second is that it shows a few differences in the destinations with large changes. 
+The first interesting pattern is that it appears that the data only show the first port visited rather than final destination, i.e. no locations in Europe but many flights to major interchange hubs. The second is that it shows a few differences in the destinations with large changes compared to the Australia-wide average data. 
 
 The top increased and decrease routes are highlighted in blue:
 
@@ -298,4 +298,4 @@ Two data sets are used for the visualisation:
 
 All code for this visualisation and my initial EDA can be found here:
 
-* [Airline Holiday Viz on GitHub](https://github.com/WillCHL/airlineViz)
+* [Airline Holiday Travel on GitHub](https://github.com/WillCHL/airlineViz)
