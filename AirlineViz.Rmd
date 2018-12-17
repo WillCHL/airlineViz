@@ -1,6 +1,6 @@
 ---
 title: "Airline Holiday Travel"
-subtitle: "Passengers on flights departing Australia in the holiday period"
+subtitle: "Visualising passengers on flights departing Australia in the holiday period"
 author: "Will Hore-Lacy"
 date: "16/12/2018"
 output:
