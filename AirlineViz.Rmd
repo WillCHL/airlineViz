@@ -23,9 +23,9 @@ library(htmltools)
 
 ## Premise
 
-In Australia the Christmas holidays coincide with the summer school holidays so it is often a time people travel. The [Story Telling With Data challenge](https://www.storytellingwithdata.com/blog/2018/12/03/lets-visualize-the-holidays) prompted to me considered how airline travel patters were different in this holiday period. 
+In Australia the Christmas holidays coincide with the summer school holidays so it is often a time people travel. The [Story Telling With Data challenge](https://www.storytellingwithdata.com/blog/2018/12/03/lets-visualize-the-holidays) prompted to me considered how airline travel patterns were different in this holiday period. 
 
-In the end I picked a problem that was too big for the offical challenge timeframe but here's what I came up with anyway... 
+In the end I picked a problem that was too big for the official challenge time-frame but here's what I came up with anyway... 
 
 ```{r downloadData, eval=FALSE}
 # Download passenger data
@@ -199,6 +199,8 @@ pairs_hol <- cbind(pairs_hol, origin, destination)
 
 ```
 
+<br>
+
 The same plot can be generated individually for each Australian port, however a map below provides some extra information. The map shows the change in average monthly passengers in the December-January holiday period for origin destination pairs. Limited to the OD pairs with the top 12 increases and decreases.
 
 ```{r, fig.height=6, fig.width=10}
@@ -274,7 +276,7 @@ leaflet(pairs_hol_top24) %>%
 ```
 <br>
 
-The first interesting patter is that it apperars that the data only show the first port visited rather than final destination, i.e. no locaitons in Europe but flights to major inerchange hubs. The second is that it shows a few differences in the destinations with large changes. 
+The first interesting pattern is that it appears that the data only show the first port visited rather than final destination, i.e. no locations in Europe but flights to major interchange hubs. The second is that it shows a few differences in the destinations with large changes. 
 
 The top increased and decrease routes are highlighted in blue:
 
@@ -284,7 +286,7 @@ The top increased and decrease routes are highlighted in blue:
 
 ## Data
 
-Two datasets are used for the visualisation:
+Two data sets are used for the visualisation:
 
 * [Flight data](https://data.gov.au/dataset/international-airlines-traffic-by-city-pairs)
     * [city_pairs.csv](https://data.gov.au/dataset/d9fbffaa-836f-4f52-80e8-324249ff269f/resource/ebcafd83-9514-4f72-a995-fe7ee90cb9da/download/city_pairs.csv) (2008-2018 data only)
@@ -292,4 +294,8 @@ Two datasets are used for the visualisation:
     * [airports.dat](https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat)
 
 
+## Code
 
+All code for this visualisation and my initial EDA can be found here:
+
+* [Airline Holiday Viz on GitHub](https://github.com/WillCHL/airlineViz)
